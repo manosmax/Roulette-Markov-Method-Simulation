@@ -49,7 +49,7 @@ def simulate(seed: int, verbose: bool = False) -> dict:
         print(f"  ΠΡΟΣΟΜΟΙΩΣΗ  |  Seed x₀ = {seed}  |  M = {M}  |  k = {K}  |  α = {ALPHA}  |  s = {S}")
         print(f"{'═'*120}")
         print(f"{'Α/Α':>6} {'Random':>10} {'Random(0,1)':>16} {'P_άφ':>12} {'P_τερμ':>9} {'Άφιξη/Τερμ':>18} "
-              f"{'Trunks(0 0 0)':>18} {'Service(NAI/OXI)':>15}")
+              f"{'Trunks(0 0 0)':>15} {'Service(NAI/OXI)':>15}")
         print(f"{'─'*120}")
 
     for step, xi in enumerate(rng_ints, 1):
@@ -166,7 +166,7 @@ def plot_comparison(results4: list[dict], results8: list[dict]):
         f"\nΣύγκριση 4 vs 8 Μετρήσεων  |  M/M/3  |  α = {ALPHA} erl  |  "
         f"E₃(2.2) = {ERLANG_B*100:.0f}%",
         fontsize=12, fontweight="bold", y=1.01
-    ) 
+    )
 
     for ax, results, subtitle in zip(
         axes,
