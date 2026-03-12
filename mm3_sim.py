@@ -10,16 +10,16 @@ import numpy as np
 ALPHA   = 2.2        # φορτίο κίνησης (erl)
 S       = 3          # αριθμός servers
 K       = 3          # πολλαπλασιαστής LCG
-M       = 128        # modulus  (2^7 → περίοδος = 2^5 = 32)
+M       = 128
 STEPS   = 32         # βήματα ανά προσομοίωση
 ERLANG_B = 0.24      # E3(2.2) θεωρητική τιμή
 
-# Seeds για 8 τρεξίματα (όλοι πρώτοι, περιττοί)
+# Seeds για 8 τρεξίματα (όλοι πρώτοι)
 SEEDS = [3, 5, 7, 11, 13, 17, 19, 23]
 
 
 # ──────────────────────────────────────────────
-# 1. ΓΕΝΝΗΤΡΙΑ ΨΕΥΔΟΤΥΧΑΙΩΝ ΑΡΙΘΜΩΝ
+# 1. ΓΕΝΝΗΤΡΙΑ ΤΥΧΑΙΩΝ ΑΡΙΘΜΩΝ
 #    Πολλαπλασιαστική μέθοδος υπολοίπου
 #    xn = k * x(n-1)  mod  M
 # ──────────────────────────────────────────────
@@ -35,10 +35,7 @@ def generate_rng(seed: int, count: int = STEPS) -> list[int]:
 # 2. ΠΥΡΗΝΑΣ ΠΡΟΣΟΜΟΙΩΣΗΣ
 # ──────────────────────────────────────────────
 def simulate(seed: int, verbose: bool = False) -> dict:
-    """
-    Εκτελεί μία πλήρη προσομοίωση 32 βημάτων.
-    Επιστρέφει λεπτομερή αποτελέσματα.
-    """
+
     rng_ints = generate_rng(seed)
     n = 0               # τρέχουσα κατάσταση (αριθμός κλήσεων)
     trunks = [0] * S    # κατάσταση κάθε server (0=ελεύθερος, 1=κατειλημμένος)
@@ -158,9 +155,6 @@ def plot_results(results: list[dict], title_suffix: str = ""):
     ax.spines[["top", "right"]].set_visible(False)
 
     plt.tight_layout()
-    fname = f"blocking_{n}measurements.png"
-    plt.savefig(fname, dpi=150, bbox_inches="tight")
-    print(f"  → Αποθηκεύτηκε: {fname}")
     plt.show()
 
 
@@ -169,10 +163,10 @@ def plot_comparison(results4: list[dict], results8: list[dict]):
     fig, axes = plt.subplots(1, 2, figsize=(14, 5.5), sharey=True)
     fig.patch.set_facecolor("#F5F8FC")
     fig.suptitle(
-        f"Σύγκριση 4 vs 8 Μετρήσεων  |  M/M/3  |  α = {ALPHA} erl  |  "
+        f"\nΣύγκριση 4 vs 8 Μετρήσεων  |  M/M/3  |  α = {ALPHA} erl  |  "
         f"E₃(2.2) = {ERLANG_B*100:.0f}%",
         fontsize=12, fontweight="bold", y=1.01
-    )
+    ) 
 
     for ax, results, subtitle in zip(
         axes,
@@ -207,8 +201,6 @@ def plot_comparison(results4: list[dict], results8: list[dict]):
         ax.spines[["top", "right"]].set_visible(False)
 
     plt.tight_layout()
-    plt.savefig("blocking_comparison_4vs8.png", dpi=150, bbox_inches="tight")
-    print("  → Αποθηκεύτηκε: blocking_comparison_4vs8.png")
     plt.show()
 
 
@@ -244,10 +236,7 @@ if __name__ == "__main__":
     print(f"  α = {ALPHA} erl  |  s = {S}  |  M = {M}  |  k = {K}")
     print("█"*60)
 
-    # ── Επαλήθευση παραμέτρων ──
-    period = M // 4
-    print(f"\n  Περίοδος γεννήτριας: M/4 = {M}/4 = {period}  ({'✓ OK' if period == STEPS else '✗ ΣΦΑΛΜΑ'})")
-    assert period == STEPS, "Λανθασμένες παράμετροι γεννήτριας!"
+
 
     # ── 4 Μετρήσεις (verbose) ──
     print("\n" + "─"*60)
@@ -266,7 +255,7 @@ if __name__ == "__main__":
     plot_results(results8, " – 8 Μετρήσεις")
 
     # ── Σύγκριση ──
-    print("\n  Δημιουργία συγκριτικού διαγράμματος 4 vs 8 μετρήσεων...")
+    print("\n  4 vs 8 Μετρήσεις")
     plot_comparison(results4, results8)
 
-    print("\n  Ολοκλήρωση προσομοίωσης. ✓\n")
+
