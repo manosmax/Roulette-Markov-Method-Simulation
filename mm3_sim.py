@@ -112,94 +112,112 @@ def run_all(seeds: list[int], verbose: bool = True) -> list[dict]:
 
 
 # ──────────────────────────────────────────────
-# 4. ΓΡΑΦΗΜΑΤΑ
+# 4. ΓΡΑΦΗΜΑΤΑ  (95% Διάστημα Εμπιστοσύνης)
 # ──────────────────────────────────────────────
-def plot_results(results: list[dict], title_suffix: str = ""):
-    n     = len(results)
-    labels = [f"B{i+1}\n(x₀={r['seed']})" for i, r in enumerate(results)]
-    b_vals = [r["B"] * 100 for r in results]
-    mean_B = np.mean(b_vals)
+# Πίνακας t_{0.05/2}^{n-1}  (df = n-1, από 1 έως 12)
+# Τιμές από τον δοθέντα πίνακα κρίσιμων τιμών t
+_T_TABLE = {
+    1:  12.706,
+    2:   4.303,
+    3:   3.182,
+    4:   2.776,
+    5:   2.571,
+    6:   2.447,
+    7:   2.365,
+    8:   2.306,
+    9:   2.262,
+    10:  2.228,
+    11:  2.201,
+    12:  2.179,
+}
 
-    fig, ax = plt.subplots(figsize=(max(8, n * 1.4), 5.5))
-    fig.patch.set_facecolor("#F5F8FC")
-    ax.set_facecolor("#F5F8FC")
 
-    colors = ["#2E75B6" if b <= ERLANG_B * 100 + 5 else "#C00000" for b in b_vals]
-    bars = ax.bar(labels, b_vals, color=colors, width=0.55, zorder=3,
-                  edgecolor="white", linewidth=1.2)
+def _ci95(values: list) -> tuple:
+    """Επιστρέφει (mean, lower_bound, upper_bound) για 95% CI.
+    Χρησιμοποιεί τον πίνακα t_{0.05/2}^{n-1}."""
+    n      = len(values)
+    mean   = np.mean(values)
+    se     = np.std(values, ddof=1) / np.sqrt(n)
+    df     = n - 1
+    if df not in _T_TABLE:
+        raise ValueError(f"df={df} εκτός πίνακα (1–12). Προσθέστε την τιμή.")
+    t_crit = _T_TABLE[df]
+    margin = t_crit * se
+    return mean, mean - margin, mean + margin
 
-    # θεωρητική γραμμή
-    ax.axhline(ERLANG_B * 100, color="#FF0000", linestyle="--", linewidth=1.8,
-               label=f"Erlang B  E₃(2.2) = {ERLANG_B*100:.0f}%", zorder=4)
-    # μέση τιμή
-    ax.axhline(mean_B, color="#70AD47", linestyle=":", linewidth=1.8,
-               label=f"Μέση τιμή B̄ = {mean_B:.2f}%", zorder=4)
 
-    # ετικέτες τιμών
-    for bar, val in zip(bars, b_vals):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.4,
-                f"{val:.1f}%", ha="center", va="bottom",
-                fontsize=9.5, fontweight="bold", color="#1F3864")
+def _draw_ci_axes(ax, results: list[dict], subtitle: str):
+    """Κοινή λογική σχεδίασης CI για έναν άξονα."""
+    b_vals         = [r["B"] * 100 for r in results]
+    mean_B, lo, hi = _ci95(b_vals)
+    n              = len(results)
 
-    ax.set_ylim(0, max(b_vals + [ERLANG_B * 100]) * 1.35)
+    # σημείο + error bar
+    ax.errorbar(
+        x=ALPHA, y=mean_B,
+        yerr=[[mean_B - lo], [hi - mean_B]],
+        fmt="o", color="black",
+        markersize=8, linewidth=1.5,
+        capsize=6, capthick=1.5,
+        zorder=5,
+    )
+
+    # ετικέτες τιμών δεξιά
+    offset_x = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.02 if ax.get_xlim()[0] != 0 else 0.3
+    for val, label in [(hi, f"{hi:.6f}"),
+                       (mean_B, f"{mean_B:.6f}"),
+                       (lo, f"{lo:.6f}")]:
+        ax.text(ALPHA + 0.3, val, label, va="center", ha="left", fontsize=9.5)
+
+    # θεωρητική γραμμή Erlang B
+    ax.axhline(ERLANG_B * 100, color="red", linestyle="--",
+               linewidth=1.4, label=f"Erlang B  E₃(2.2) = {ERLANG_B*100:.0f}%", zorder=3)
+
+    # άξονες
+    ax.set_xlim(ALPHA - 5, ALPHA + 5)
+    pad = max(5, (hi - lo) * 0.4)
+    ax.set_ylim(max(0, lo - pad), hi + pad)
+    ax.set_xlabel("Φορτίο Κίνησης α (erl)", fontsize=10)
     ax.set_ylabel("Πιθανότητα Απώλειας B (%)", fontsize=10)
     ax.set_title(
-        f"Προσομοίωση M/M/3 – Μέθοδος Ρουλέτας{title_suffix}\n"
-        f"α = {ALPHA} erl  |  {STEPS} βήματα/μέτρηση  |  "
-        f"M = {M}, k = {K}",
-        fontsize=11, fontweight="bold", pad=12
+        f"{subtitle}\n"
+        f"95% Διάστημα Εμπιστοσύνης  ({n} μετρήσεις)  |  M={M}, k={K}",
+        fontsize=10, fontweight="bold", pad=8,
     )
-    ax.legend(fontsize=9, framealpha=0.85)
-    ax.yaxis.grid(True, linestyle="--", alpha=0.5, zorder=0)
+    ax.yaxis.grid(True, linestyle="--", alpha=0.45, color="gray")
+    ax.xaxis.grid(True, linestyle="--", alpha=0.45, color="gray")
     ax.set_axisbelow(True)
     ax.spines[["top", "right"]].set_visible(False)
+    ax.legend(fontsize=9, framealpha=0.85)
 
+
+def plot_results(results: list[dict], title_suffix: str = ""):
+    """Ένα διάγραμμα 95% CI για n μετρήσεις."""
+    fig, ax = plt.subplots(figsize=(7, 6))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+    ax.set_xlim(ALPHA - 5, ALPHA + 5)   # ορισμός πρώτα ώστε το offset να είναι σωστό
+    _draw_ci_axes(ax, results,
+                  f"Προσομοίωση M/M/3 – Μέθοδος Ρουλέτας{title_suffix}")
     plt.tight_layout()
     plt.show()
 
 
 def plot_comparison(results4: list[dict], results8: list[dict]):
-    """Σύγκριση 4 vs 8 μετρήσεων σε ένα διάγραμμα."""
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5.5), sharey=True)
-    fig.patch.set_facecolor("#F5F8FC")
+    """Δύο διαγράμματα 95% CI δίπλα-δίπλα (4 vs 8 μετρήσεις)."""
+    fig, axes = plt.subplots(1, 2, figsize=(13, 6))
+    fig.patch.set_facecolor("white")
     fig.suptitle(
-        f"\nΣύγκριση 4 vs 8 Μετρήσεων  |  M/M/3  |  α = {ALPHA} erl  |  "
+        f"Σύγκριση 4 vs 8 Μετρήσεων – M/M/3  |  α = {ALPHA} erl  |  "
         f"E₃(2.2) = {ERLANG_B*100:.0f}%",
-        fontsize=12, fontweight="bold", y=1.01
+        fontsize=12, fontweight="bold",
     )
+    for ax in axes:
+        ax.set_facecolor("white")
+        ax.set_xlim(ALPHA - 5, ALPHA + 5)
 
-    for ax, results, subtitle in zip(
-        axes,
-        [results4, results8],
-        ["4 Μετρήσεις", "8 Μετρήσεις"]
-    ):
-        ax.set_facecolor("#F5F8FC")
-        labels = [f"B{i+1}\n(x₀={r['seed']})" for i, r in enumerate(results)]
-        b_vals = [r["B"] * 100 for r in results]
-        mean_B = np.mean(b_vals)
-
-        colors = ["#2E75B6" if b <= ERLANG_B * 100 + 6 else "#C00000" for b in b_vals]
-        bars = ax.bar(labels, b_vals, color=colors, width=0.55,
-                      edgecolor="white", linewidth=1.2, zorder=3)
-
-        ax.axhline(ERLANG_B * 100, color="#FF0000", linestyle="--",
-                   linewidth=1.8, label=f"E₃(2.2) = {ERLANG_B*100:.0f}%", zorder=4)
-        ax.axhline(mean_B, color="#70AD47", linestyle=":",
-                   linewidth=1.8, label=f"B̄ = {mean_B:.2f}%", zorder=4)
-
-        for bar, val in zip(bars, b_vals):
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.4,
-                    f"{val:.1f}%", ha="center", va="bottom",
-                    fontsize=8.5, fontweight="bold", color="#1F3864")
-
-        ax.set_title(subtitle, fontsize=11, fontweight="bold")
-        ax.set_ylabel("B (%)", fontsize=10)
-        ax.set_ylim(0, 55)
-        ax.legend(fontsize=8.5, framealpha=0.85)
-        ax.yaxis.grid(True, linestyle="--", alpha=0.5, zorder=0)
-        ax.set_axisbelow(True)
-        ax.spines[["top", "right"]].set_visible(False)
-
+    _draw_ci_axes(axes[0], results4, "4 Μετρήσεις")
+    _draw_ci_axes(axes[1], results8, "8 Μετρήσεις")
     plt.tight_layout()
     plt.show()
 
